@@ -4,4 +4,4 @@ We present a novel framework called cell-ECM graphs, which incorporates both cel
 
 Refer to Lung_CEG for a tutorial. 
 
-![Alt text](img/Figure_1.png)
+![Method Overview](img/Figure_1.png)
