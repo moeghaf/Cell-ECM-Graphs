@@ -4,6 +4,6 @@ As an extention of traditional cell graphs, we present a novel framework called 
 
 Refer to Lung_CEG for a tutorial. 
 
-Paper: 
+Reference: 
 
 ![Method Overview](Figure_1.png)
