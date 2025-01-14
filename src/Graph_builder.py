@@ -29,15 +29,19 @@ class GraphBuilder:
         self.full_stack_imgs = imread(full_stack_img_path)
         if norm == 'znorm':
             print('Applying z-norm')
-            self.raw = self.full_stack_imgs 
+            self.raw = self.full_stack_imgs.copy()
             normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
+            min_normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
+
             for i in range(self.raw.shape[0]):
                 
                 self.scaler = StandardScaler()
+                self.scaler_min_max = MinMaxScaler()
                 normalized_stack[i] = self.scaler.fit_transform(self.raw[i])
+                min_normalized_stack[i] = self.scaler_min_max.fit_transform(self.raw[i])
             
             self.full_stack_imgs = normalized_stack
-
+            self.full_stack_imgs_min_max = min_normalized_stack # Used for plotting protein proportions instead of z-norm
 
         self.c, self.h, self.w = self.full_stack_imgs.shape
         self.panel = pd.read_csv(panel_path)
@@ -187,7 +191,7 @@ class GraphBuilder:
         # Compute the mean, standard deviation, median, and percentiles for each patch
         #self.embedding = self.ecm_patches_rs.mean(axis=(1, 2))
         self.ecm_patch_flat = self.ecm_patches_rs.mean(axis=(1, 2))
-    # Compute the mean, standard deviation, median, percentiles, max, min, skewness, and kurtosis for each patch
+        # Compute the mean, standard deviation, median, percentiles, max, min, skewness, and kurtosis for each patch
         mean_intensity = self.ecm_patches_rs.mean(axis=(1, 2))  # Mean intensity
 
         # Stack all features into a single array (combine across the new axis)
@@ -203,7 +207,7 @@ class GraphBuilder:
         kmeans = KMeans(n_clusters=k)
         kmeans.fit(self.embedding)
         
-    # Save the cluster labels
+        # Save the cluster labels
         self.cluster_labels = kmeans.labels_
 
     def reconstruct_cluster_patches_to_image(self):
@@ -255,22 +259,22 @@ class GraphBuilder:
 
         plt.show() 
         fig.savefig(self.save_folder+'/ECM_patch_clusters.png', bbox_inches='tight')
-
     
     def visualize_ecm_cluster_proteins(self):
+        min_max_img = self.full_stack_imgs_min_max[self.ecm_mask].transpose(1,2,0)
+        ecm_patch_img = self.reconstructed_image[:,:,0]
+
         cluster_means = {}
 
         for i in np.unique(self.cluster_labels): 
-            mask = self.cluster_labels == i 
-            cluster_patches =  self.ecm_patch_flat[mask] # Reverse back to raw 
-            cluster_means[i] = cluster_patches.mean(0)
+            cluster_means[i] = min_max_img[ecm_patch_img == i].mean(0)
 
         cluster_df = pd.DataFrame(cluster_means, index=[self.panel[self.ecm_mask].name.values])
         self.cluster_df = cluster_df.T
 
         #ax = self.cluster_df.plot(kind='bar', stacked=True)
 
-  
+
         background_label = self.cluster_df.sum(axis=1).argmin()
         df = self.cluster_df.copy()
 
@@ -289,29 +293,29 @@ class GraphBuilder:
         colors = sns.color_palette('hls', 10)
 
         # Plot the bar chart with the specified colors
-        #ax = df_percentage.plot(kind='bar', stacked=True, color=colors, edgecolor=self.cluster_colors, 
-        #                        linewidth=2)
-        #ax.grid(False)
+        ax = df_percentage.plot(kind='bar', stacked=True, color=colors, edgecolor=self.cluster_colors, 
+                                linewidth=2)
+        ax.grid(False)
 
         # Move legend outside the bounding box
-        #legend = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', edgecolor='black')
-        #for legend_handle in legend.get_children():
-        #    if isinstance(legend_handle, plt.Line2D):
-        #        legend_handle.set_edgecolor('black')        # Set axis labels
-        #        legend_handle.set_linewidth(1)
+        legend = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', edgecolor='black')
+        for legend_handle in legend.get_children():
+            if isinstance(legend_handle, plt.Line2D):
+                legend_handle.set_edgecolor('black')        # Set axis labels
+                legend_handle.set_linewidth(1)
 
-        #ax.set_xlabel('Extracellular matrix clusters')
-        #ax.set_ylabel('Protein percentage')
+        ax.set_xlabel('Extracellular matrix clusters')
+        ax.set_ylabel('Protein percentage')
         # Set DPI for the figure
-        #plt.gcf().set_dpi(300)        
-        #fig = ax.get_figure()
-        #fig.set_dpi(300)
+        plt.gcf().set_dpi(300)        
+        fig = ax.get_figure()
+        fig.set_dpi(300)
 
         # Show the plot
-        #plt.show()
+        plt.show()
 
-        # Save the figure
-        #fig.savefig(self.save_folder+'/ECM_protein_proportions.png', bbox_inches='tight')
+    # Save the figure
+    #fig.savefig(self.save_folder+'/ECM_protein_proportions.png', bbox_inches='tight')
     
     def get_ecm_patches(self):
         ''' Generates ECM patches '''
@@ -644,4 +648,46 @@ class GraphBuilder:
         plt.show()
         fig.savefig(self.save_folder+'/cell_ecm_graph.png', bbox_inches='tight')
 
+    def count_cells_on_patches(self,cell_mask_path):
+
+        print('Counting cell types on each ECM cluster')
+        scaler = MinMaxScaler()
+        cells_per_patch = {}
+        background_idx = self.cluster_df.sum(axis=1).argmin()
+        for i in np.unique(self.reconstructed_image):
+            if i != background_idx: 
+                seg_mask = imread(cell_mask_path)
+                patch_mask = self.reconstructed_image[:,:,0].copy()
+                patch_mask = patch_mask == i
+                #print(i)
+                #plt.imshow(patch_mask)
+                #plt.show()
+                seg_mask[~patch_mask] = 0 
+                cell_counts = self.cell_data[self.cell_data.ObjectNumber.isin(np.unique(seg_mask))].celltype.value_counts()
+                
+                # Convert to DataFrame for proper scaling
+                cell_counts_df = cell_counts.reset_index()
+                cell_counts_df.columns = ['celltype', 'count']
+                
+                # Scale counts and store back in dictionary
+                cell_counts_df['scaled_count'] = scaler.fit_transform(cell_counts_df['count'].values.reshape(-1, 1)).flatten()
+                cells_per_patch[i] = cell_counts_df.set_index('celltype')['scaled_count'].to_dict()
         
+            # Visualize 
+        # Convert the data into a DataFrame
+        df = pd.DataFrame(cells_per_patch).fillna(0).round(2)
+        df.columns = ['ECM_cluster_'+ str(int(i)) for i in list(cells_per_patch.keys())]
+
+        # Plotting
+        plt.figure(figsize=(10, 6), dpi=300)
+        sns.heatmap(df, annot=True, cmap="YlGnBu", cbar=True, linewidths=0.5, fmt='g')
+
+        # Adding labels and title
+        plt.title("Cell Type on ECM Clusters Patches")
+        plt.xlabel("Sample Index")
+        plt.ylabel("Cell Type")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+
+        plt.show()
+
