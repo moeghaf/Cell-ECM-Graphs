@@ -22,17 +22,14 @@ Can be used to process multiple ROIs easily:
 git clone https://github.com/moeghaf/Cell-ECM-Graphs.git
 
 #### Step 2: Navigate to Cell-ECM-Graphs
-```bash
 cd Cell-ECM-Graphs```
 
 #### Step 3: Create new environment and activate 
-```bash
 conda create --name cellECMgraphs python=3.11.9
 
 conda activate cellECMgraphs ```
 
 #### Step 4: Install requirements 
-```bash
 pip install -r requirements.txt```
 
 #### Step 5: 
