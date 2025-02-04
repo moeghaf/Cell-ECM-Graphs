@@ -17,6 +17,19 @@ For a simple tutorial using a single ROI in Python, refer to the [Lung_CEG noteb
 ### Command Line:  
 Can be used to process multiple ROIs easily:
 
-#### Step 1: 
+#### Step 1: Clone Cell-ECM-Graphs
+git clone https://github.com/moeghaf/Cell-ECM-Graphs.git
+
+#### Step 2: Navigate to Cell-ECM-Graphs
+cd Cell-ECM-Graphs
+
+#### Step 3: Create new environment and activate 
+conda create --name cellECMgraphs python=3.11.9
+conda activate cellECMgraphs 
+
+#### Step 4: Install requirements 
+pip install -r requirements.txt
+
+#### Step 5: 
 
 Reference: 
