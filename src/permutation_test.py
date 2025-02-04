@@ -77,8 +77,8 @@ def classic_interaction_count(cmg, original_matrix, cell_or_ecm):
     if cell_or_ecm == 'cell': 
         unique_ct, uni_ct_counts = np.unique(cmg.cell_y_str,return_counts=True)
     if cell_or_ecm == 'ecm':
+        labels = []
         for n,attri in cmg.G.nodes(data=True):
-            labels = []
             if 'ecm' in n:
                 labels.append('ECM Cluster ' + str(attri['ecm_labels']))
         unique_ct, uni_ct_counts = np.unique(labels,return_counts=True)
