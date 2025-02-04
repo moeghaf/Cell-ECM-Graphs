@@ -8,7 +8,7 @@ As an extention of traditional cell graphs, we present a novel framework called 
 ## Requirments
 Python 3.12.3
 
-[Requirments file (should be downloaded automatically](tutorial/requirments.txt) 
+[Requirments file (should be downloaded automatically)](tutorial/requirments.txt) 
 
 ## Usage Examples
 ### Python Notebook: 
