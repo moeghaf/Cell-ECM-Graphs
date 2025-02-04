@@ -27,21 +27,26 @@ class GraphBuilder:
     def __init__(self, full_stack_img_path, panel_path, cell_data_path, patch_size,save_folder, norm='znorm'):
         # Load IMC intensity stacks, panel, cell labels and cell segmentation masks. 
         self.full_stack_imgs = imread(full_stack_img_path)
+        self.scaler_min_max = MinMaxScaler()
+
         if norm == 'znorm':
             print('Applying z-norm')
-            self.raw = self.full_stack_imgs.copy()
-            normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
-            min_normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
+            self.scaler = StandardScaler()
+        
+        if norm == 'min-max':
+            self.scaler = MinMaxScaler()
 
-            for i in range(self.raw.shape[0]):
-                
-                self.scaler = StandardScaler()
-                self.scaler_min_max = MinMaxScaler()
-                normalized_stack[i] = self.scaler.fit_transform(self.raw[i])
-                min_normalized_stack[i] = self.scaler_min_max.fit_transform(self.raw[i])
+        self.raw = self.full_stack_imgs.copy()
+        normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
+        min_normalized_stack = np.zeros_like(self.raw, dtype=np.float32)
+
+        for i in range(self.raw.shape[0]):
             
-            self.full_stack_imgs = normalized_stack
-            self.full_stack_imgs_min_max = min_normalized_stack # Used for plotting protein proportions instead of z-norm
+            normalized_stack[i] = self.scaler.fit_transform(self.raw[i])
+            min_normalized_stack[i] = self.scaler_min_max.fit_transform(self.raw[i])
+        
+        self.full_stack_imgs = normalized_stack
+        self.full_stack_imgs_min_max = min_normalized_stack # Used for plotting protein proportions instead of z-norm
 
         self.c, self.h, self.w = self.full_stack_imgs.shape
         self.panel = pd.read_csv(panel_path)
@@ -397,7 +402,7 @@ class GraphBuilder:
 
         ax.axis('off') 
         plt.axis('off')
-        nx.draw_networkx_nodes(self.G, pos=node_positions, nodelist=cell_nodes, node_color=node_colors, node_size=5, ax=ax)
+        nx.draw_networkx_nodes(self.G, pos=node_positions, nodelist=cell_nodes, node_color=node_colors, node_size=5, ax=ax, edgecolors='black', linewidths=0.5)
         nx.draw_networkx_edges(self.G, pos=node_positions, edgelist=edges_to_plot, width=1, alpha=1, ax=ax, edge_color='darkblue')  # Draw edges only among 'cell' nodes
 
         # Creating legend handles for cell types
@@ -526,8 +531,8 @@ class GraphBuilder:
         print('Edge count: ', len(edges_to_plot))
         node_colors = [self.cluster_colors_map[label] for label in ecm_nodes_label]
 
-        nx.draw_networkx_nodes(self.G, pos=node_positions, nodelist=ecm_nodes, node_color=node_colors, node_size=5, ax=ax)
-        nx.draw_networkx_edges(self.G, pos=node_positions, edgelist=edges_to_plot, width=1, alpha=1, ax=ax, edge_color='darkgreen')  # Draw edges only among 'cell' nodes
+        nx.draw_networkx_nodes(self.G, pos=node_positions, nodelist=ecm_nodes, node_color=node_colors, node_size=5, ax=ax,    edgecolors='black', linewidths=0.5)
+        nx.draw_networkx_edges(self.G, pos=node_positions, edgelist=edges_to_plot, width=1, alpha=1, ax=ax, edge_color='darkgreen')  
 
 
         legend_handles = []
@@ -623,7 +628,7 @@ class GraphBuilder:
         
         node_colors = [self.color_map[str(n)] for n in node_y]
 
-        nx.draw_networkx_nodes(self.G, pos=pos,  node_color=node_colors, node_size=5, ax=ax)
+        nx.draw_networkx_nodes(self.G, pos=pos,  node_color=node_colors, node_size=5, ax=ax,   edgecolors='black', linewidths=0.5)
         nx.draw_networkx_edges(self.G, pos=pos, edgelist=cell_cell_edges, width=1, alpha=0.5, ax=ax, edge_color='darkblue')  #
         nx.draw_networkx_edges(self.G, pos=pos, edgelist=ecm_ecm_edges, width=1, alpha=0.5, ax=ax, edge_color='darkgreen')  #
         nx.draw_networkx_edges(self.G, pos=pos, edgelist=cell_ecm_edges, width=1, alpha=0.2, ax=ax, edge_color='darkred')  #
