@@ -19,7 +19,8 @@ Can be used to process multiple ROIs easily:
 
 #### Step 1: Clone Cell-ECM-Graphs
 ```bash
-git clone https://github.com/moeghaf/Cell-ECM-Graphs.git'''
+git clone https://github.com/moeghaf/Cell-ECM-Graphs.git
+```
 
 #### Step 2: Navigate to Cell-ECM-Graphs
 cd Cell-ECM-Graphs
