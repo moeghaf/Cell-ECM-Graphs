@@ -20,20 +20,45 @@ from scipy.spatial.distance import cdist
 from sklearn.preprocessing import StandardScaler,MinMaxScaler
 from scipy.stats import skew, kurtosis
 
-
-
 class GraphBuilder:
     
-    def __init__(self, full_stack_img_path, panel_path, cell_data_path, patch_size,save_folder, norm='znorm'):
+    def __init__(self, 
+                 full_stack_img_path, 
+                 panel_path, cell_data_path, 
+                 save_folder,
+                 patch_size=10,
+                 norm='znorm',
+                 cell_ecm_dist_thres = 10,
+                 ecm_ecm_dist_thresh = 3,
+                 cell_cell_dist_thres = 15,
+                 cell_KNN = 4,
+                 single=True
+                 ):
+        
+        # Arguments 
+        self.norm = norm 
+        self.cell_ecm_dist_thres = cell_ecm_dist_thres
+        self.ecm_ecm_dist_thresh = ecm_ecm_dist_thresh
+        self.cell_cell_dist_thres = cell_cell_dist_thres
+        self.cell_KNN = cell_KNN 
+
+        # Paths 
+        self.full_stack_img_path = full_stack_img_path
+        self.panel_path = panel_path
+        self.cell_data_path = cell_data_path
+        self.patch_size = patch_size
+        self.save_folder = save_folder
+        self.single = single 
+
+    def load_imgs(self):
         # Load IMC intensity stacks, panel, cell labels and cell segmentation masks. 
-        self.full_stack_imgs = imread(full_stack_img_path)
+        self.full_stack_imgs = imread(self.full_stack_img_path)
         self.scaler_min_max = MinMaxScaler()
 
-        if norm == 'znorm':
-            print('Applying z-norm')
+        if self.norm == 'znorm':
             self.scaler = StandardScaler()
         
-        if norm == 'min-max':
+        if self.norm == 'min-max':
             self.scaler = MinMaxScaler()
 
         self.raw = self.full_stack_imgs.copy()
@@ -49,11 +74,9 @@ class GraphBuilder:
         self.full_stack_imgs_min_max = min_normalized_stack # Used for plotting protein proportions instead of z-norm
 
         self.c, self.h, self.w = self.full_stack_imgs.shape
-        self.panel = pd.read_csv(panel_path)
-        self.cell_data = pd.read_csv(cell_data_path) 
+        self.panel = pd.read_csv(self.panel_path)
+        self.cell_data = pd.read_csv(self.cell_data_path) 
         self.cell_y_str  = np.array(self.cell_data['celltype']) # May need to rename it to celltype 
-        self.patch_size = patch_size
-        self.save_folder = save_folder
         os.makedirs(self.save_folder, exist_ok=True)
         
     def find_patch_pixels_using_centre(self, image, patch_centre, patch_size=10):
@@ -75,14 +98,17 @@ class GraphBuilder:
         nonzero_rows, nonzero_cols = np.nonzero(image)
         return np.column_stack((nonzero_rows, nonzero_cols))
 
-    def find_neighbour_patch_coords(self, coord, coord_list, distance=10):
+    def find_neighbour_patch_coords(self, coord, coord_list):
+        ecm_ecm_distance = self.patch_size 
         within_distance_coords = []  # Add original coord for self loops 
+        
         for c in coord_list:
             # Calculate the absolute difference between coordinates in both rows and columns
             row_diff = abs(coord[0] - c[0])
             col_diff = abs(coord[1] - c[1])
+
             # Check if both row and column differences are within the specified distance
-            if row_diff <= distance and col_diff <= distance:
+            if row_diff <= ecm_ecm_distance and col_diff <= ecm_ecm_distance:
                 within_distance_coords.append(c)
         return within_distance_coords
     
@@ -90,7 +116,7 @@ class GraphBuilder:
         distances = cdist(set1, set2)
         return np.min(distances), distances
         
-    def add_cell_ecm_interactions(self, cell_ecm_dist_thres=10):
+    def add_cell_ecm_interactions(self):
 
         ecm_coords_flipped = (self.patch_A_centre[1], -self.patch_A_centre[0])
 
@@ -102,7 +128,7 @@ class GraphBuilder:
         min_dist, dist = self.min_distance_between_patch_coords(pixel_co_patch_A_flipepd, self.cell_coords)
         
         # Check if below threshold 
-        cell_ecm_dist = np.argwhere(dist < cell_ecm_dist_thres)
+        cell_ecm_dist = np.argwhere(dist < self.cell_ecm_dist_thres)
         
         # Add edge between cell and ecm nodes 
         if np.any(cell_ecm_dist): 
@@ -153,7 +179,6 @@ class GraphBuilder:
         self.ecm_patches_rs = self.ecm_patches_rs[:,:,:,self.ecm_mask]
         
     def load_ecm_data(self): 
-        print('ECM data loaded, cell channels zeroed out.')
         self.ecm_stack = self.full_stack_imgs.copy()
         self.ecm_mask = self.panel['ecm'].eq(1).to_numpy()
         self.ecm_stack[~self.ecm_mask, :, :] = 0    
@@ -166,9 +191,6 @@ class GraphBuilder:
         self.build_ecm_ecm_graph()
 
     def pad_ecm_stack(self):
-        print('/n ----------')
-        print('Padding original image for ECM patches')
-        print('Original shape: ',  np.shape(self.ecm_stack))
     
         # Calculate the amount of padding required for each dimension
         pad_width = [(0, 0)] 
@@ -185,13 +207,8 @@ class GraphBuilder:
         # Find padded height and width 
         self.padded_ecm_stack = padded_ecm_stack.transpose(1,2,0)
         self.padded_ecm_stack_shape = np.shape(self.padded_ecm_stack[:,:,self.ecm_mask])
-        print('Padded shape: ', self.padded_ecm_stack_shape)
                         
-
-    def cluster_ecm_patches(self, k=4):
-
-        print('Clustering ECM patches (mean intensity per channel, standard deviation, median, percentiles)')
-        # Select only the 10 ECM channels 
+    def cluster_ecm_patches(self):
 
         # Compute the mean, standard deviation, median, and percentiles for each patch
         #self.embedding = self.ecm_patches_rs.mean(axis=(1, 2))
@@ -207,16 +224,16 @@ class GraphBuilder:
 
         emb_dim = self.embedding.shape
         self.embedding = self.embedding.reshape(emb_dim[0], -1)
-        print('embedding dim: ', self.embedding.shape)
+
         # Perform KMeans clustering
-        kmeans = KMeans(n_clusters=k)
+        kmeans = KMeans(n_clusters=self.cell_KNN)
         kmeans.fit(self.embedding)
         
         # Save the cluster labels
         self.cluster_labels = kmeans.labels_
 
     def reconstruct_cluster_patches_to_image(self):
-        print('Reconstructing image from cluster patches ... ')
+
         # Reshape patches to collapse the patch dimensions into one
 
         self.clustered_image = np.zeros_like(self.ecm_patches_rs)
@@ -239,8 +256,8 @@ class GraphBuilder:
         
         fig, ax = plt.subplots(dpi=300)
         image = ax.imshow(self.reconstructed_image[:,:,0], cmap='jet')
-        ax.grid(False)
-        ax.axis('off')
+        plt.close(fig)
+
 
         # Create a legend with cluster labels
         unique_labels = np.unique(self.cluster_labels)
@@ -249,22 +266,31 @@ class GraphBuilder:
         for c, k in zip(self.cluster_colors, unique_labels):
             self.cluster_colors_map['ECM Cluster ' + str(k)] = c 
 
-        handles = [Patch(facecolor=color, edgecolor='k', label=f'ECM Cluster {label}') for label, color in zip(unique_labels, self.cluster_colors)]
-        
-        # Place the legend outside the image bbox
-        legend = ax.legend(handles=handles, loc='upper left', bbox_to_anchor=(1.05, 1), frameon=False)
-        
-        for legend_handle in legend.get_children():
-            if isinstance(legend_handle, plt.Line2D):
-                legend_handle.set_edgecolor('black')        # Set axis labels
-                legend_handle.set_linewidth(1)
-        # Adjust legend and label font sizes
-        for text in legend.get_texts():
-            text.set_fontsize(7) 
+        if self.single: 
+            fig, ax = plt.subplots(dpi=300)
+            image = ax.imshow(self.reconstructed_image[:,:,0], cmap='jet')
+            plt.close(fig)
 
-        plt.show() 
-        fig.savefig(self.save_folder+'/ECM_patch_clusters.png', bbox_inches='tight')
-    
+            ax.grid(False)
+            ax.axis('off')
+
+            handles = [Patch(facecolor=color, edgecolor='k', label=f'ECM Cluster {label}') for label, color in zip(unique_labels, self.cluster_colors)]
+            
+            # Place the legend outside the image bbox
+            legend = ax.legend(handles=handles, loc='upper left', bbox_to_anchor=(1.05, 1), frameon=False)
+            
+            for legend_handle in legend.get_children():
+                if isinstance(legend_handle, plt.Line2D):
+                    legend_handle.set_edgecolor('black')        # Set axis labels
+                    legend_handle.set_linewidth(1)
+            # Adjust legend and label font sizes
+            for text in legend.get_texts():
+                text.set_fontsize(7) 
+
+            if self.single:
+                plt.show() 
+            fig.savefig(self.save_folder+'/ECM_patch_clusters.png', bbox_inches='tight')
+        
     def visualize_ecm_cluster_proteins(self):
         min_max_img = self.full_stack_imgs_min_max[self.ecm_mask].transpose(1,2,0)
         ecm_patch_img = self.reconstructed_image[:,:,0]
@@ -297,31 +323,31 @@ class GraphBuilder:
         # Generate HSL-based color palette with 'num_clusters' distinct colors
         colors = sns.color_palette('hls', 10)
 
-        # Plot the bar chart with the specified colors
-        ax = df_percentage.plot(kind='bar', stacked=True, color=colors, edgecolor=self.cluster_colors, 
-                                linewidth=2)
-        ax.grid(False)
+        if self.single:
+            # Plot the bar chart with the specified colors
+            ax = df_percentage.plot(kind='bar', stacked=True, color=colors, edgecolor=self.cluster_colors, 
+                                    linewidth=2)
+            ax.grid(False)
 
-        # Move legend outside the bounding box
-        legend = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', edgecolor='black')
-        for legend_handle in legend.get_children():
-            if isinstance(legend_handle, plt.Line2D):
-                legend_handle.set_edgecolor('black')        # Set axis labels
-                legend_handle.set_linewidth(1)
+            # Move legend outside the bounding box
+            legend = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', edgecolor='black')
+            for legend_handle in legend.get_children():
+                if isinstance(legend_handle, plt.Line2D):
+                    legend_handle.set_edgecolor('black')        # Set axis labels
+                    legend_handle.set_linewidth(1)
 
-        ax.set_xlabel('Extracellular matrix clusters')
-        ax.set_ylabel('Protein percentage')
-        # Set DPI for the figure
-        plt.gcf().set_dpi(300)        
-        fig = ax.get_figure()
-        fig.set_dpi(300)
+            ax.set_xlabel('Extracellular matrix clusters')
+            ax.set_ylabel('Protein percentage')
+            # Set DPI for the figure
+            plt.gcf().set_dpi(300)        
+            fig = ax.get_figure()
+            fig.set_dpi(300)
 
-        # Show the plot
-        plt.show()
-
-    # Save the figure
-    #fig.savefig(self.save_folder+'/ECM_protein_proportions.png', bbox_inches='tight')
-    
+            # Show the plot
+            plt.show()
+            # Save the figure
+            fig.savefig(self.save_folder+'/ECM_protein_proportions.png', bbox_inches='tight')
+            
     def get_ecm_patches(self):
         ''' Generates ECM patches '''
         self.load_ecm_data()
@@ -331,7 +357,6 @@ class GraphBuilder:
         self.reconstruct_cluster_patches_to_image()
         self.visualize_ecm_cluster_proteins()
 
-        print('Removing background patches')
         background_idx = self.cluster_df.mean(1).argmin()
         self.background_mask = self.cluster_labels!=background_idx
         self.background_removed_ecm_patches = self.ecm_patches_rs[self.background_mask]
@@ -354,8 +379,7 @@ class GraphBuilder:
         ecm_binary_label = ['ECM'] * len(self.ecm_y_str)
         self.cell_ecm_binary_label = np.hstack((cell_binary_label, ecm_binary_label))
 
-    def build_cell_cell_graph(self,  dist_max = 15):
-        print('Adding cell nodes and edges (cell-cell interactions) ... ')
+    def build_cell_cell_graph(self):
         self.G = nx.Graph()
 
         node_count = 0 
@@ -376,11 +400,9 @@ class GraphBuilder:
                 distances = [(node2, distance(centroid1, self.G.nodes[node2]['centroid'])) for node2 in self.G.nodes() if node1 != node2 and 'cell' in node2]
                 distances.sort(key=lambda x: x[1])
                 for neighbor, dist in distances[:5]:
-                    if dist < dist_max: 
+                    if dist < self.cell_cell_dist_thres: 
                         self.G.add_edge(node1, neighbor, distance=dist, interaction='cell-cell')
-
-        print('Cell nodes: ', self.G.number_of_nodes())
-        print('Cell-cell interactions: ', self.G.number_of_edges())               
+           
         self.cell_G = self.G.copy()        
     
     def visualize_cell_cell_interactions(self):
@@ -416,9 +438,10 @@ class GraphBuilder:
         edge_legend_handle = plt.Line2D([0], [0], color='darkblue', lw=1, alpha=1, label='Cell-Cell Interaction')
         legend_handles.append(edge_legend_handle)
         plt.legend(handles=legend_handles,  loc='upper left', bbox_to_anchor=(1.02, 1))
-
-        plt.show()
-        fig.savefig(self.save_folder+'/cell_graph.png', bbox_inches='tight')
+        
+        fig.savefig(self.save_folder+'/cell_cell_interactions.png', bbox_inches='tight')
+        if self.single == False:
+            plt.close(fig)
 
     def set_up_colors(self):
         # Access celltype and node labels 
@@ -434,13 +457,12 @@ class GraphBuilder:
                 
         
         # Add consistent node colors 
-        print('Setting up consistent colors for visualization ')
         unique_nodes = list(set(self.node_labels_all))
         self.color_map = defaultdict(lambda: 'blue')  
         self.color_map.update({n: plt.cm.tab20(i) for i, n in enumerate(unique_nodes)})        
         self.node_colors = [self.color_map[node] for node in self.node_labels_all]
 
-    def build_ecm_ecm_graph(self, min_dist_thres = 10):
+    def build_ecm_ecm_graph(self):
 
         # Find patch centres, ecm labels, pixel co-ords and deep features 
         centers = np.array(self.centers)[self.background_mask]
@@ -452,7 +474,6 @@ class GraphBuilder:
 
 
         # Add nodes along with attributes to the graph
-        print('Adding ECM nodes ...')
         for i in range(len(ecm_labels)):
             node_id = f"ecm_node{i+1}"
             attributes = {
@@ -460,8 +481,6 @@ class GraphBuilder:
                 'ecm_coords': (ecm_coords[0][i],ecm_coords[1][i] )}
             self.G.add_node(node_id, **attributes)
 
-        # Adding ecm-ecm-interactions
-        print('Adding edges: ecm-ecm and cell-ecm interactions to graph ...')        
         # Convert edge co-ords to node id 
         self.ecm_nodeid_to_patch_centre = {}
         for i in range(np.shape(ecm_coords)[1]):
@@ -483,8 +502,7 @@ class GraphBuilder:
         mean_stack = self.ecm_stack[self.ecm_mask].mean(axis=0)
 
         edge_list = []
-        min_dist_thres = 3 
-        counter = 0 
+
         for patch_A_centre in centers:
             self.patch_A_centre = patch_A_centre
             patch_A = self.find_patch_pixels_using_centre(mean_stack, patch_centre = patch_A_centre.astype(int)) 
@@ -500,7 +518,7 @@ class GraphBuilder:
                         pixel_co_patch_B = self.find_nonzero_coordinates(patch_B)
                         if np.any(pixel_co_patch_A) and np.any(pixel_co_patch_B): 
                             min_dist_patchA_patchB, _ = self.min_distance_between_patch_coords(pixel_co_patch_A, pixel_co_patch_B)
-                            if min_dist_patchA_patchB < min_dist_thres:
+                            if min_dist_patchA_patchB < self.ecm_ecm_dist_thresh:
                                 edge_list.append((patch_A_centre, patch_B_centre))
 
 
@@ -528,7 +546,7 @@ class GraphBuilder:
             # Check if edge is ecm-ecm interaction 
             if 'ecm-ecm' in attr['interaction'] :
                 edges_to_plot.append((u,v))
-        print('Edge count: ', len(edges_to_plot))
+
         node_colors = [self.cluster_colors_map[label] for label in ecm_nodes_label]
 
         nx.draw_networkx_nodes(self.G, pos=node_positions, nodelist=ecm_nodes, node_color=node_colors, node_size=5, ax=ax,    edgecolors='black', linewidths=0.5)
@@ -547,8 +565,9 @@ class GraphBuilder:
         legend_handles.append(edge_legend_handle)
 
         plt.legend(handles=legend_handles, loc='upper left', bbox_to_anchor=(1.02, 1))
-        plt.show()  
         fig.savefig(self.save_folder+'/ecm_ecm_interactions.png', bbox_inches='tight')
+        if self.single == False:
+            plt.close(fig) 
 
     def visualize_cell_ecm_interactions(self):
         pos = {}
@@ -572,9 +591,6 @@ class GraphBuilder:
             if 'cell-ecm' in attr['interaction']:
                 cell_ecm_edges.append((u,v))
 
-        print(len(cell_cell_edges))
-        print(len(ecm_ecm_edges))
-        print(len(cell_ecm_edges))
         
         node_colors = [self.color_map[str(n)] for n in node_y]
 
@@ -592,8 +608,9 @@ class GraphBuilder:
         # Adding legend
         plt.tight_layout()
         plt.legend(handles=legend_handles, loc='upper left', bbox_to_anchor=(1.02, 1))
-        plt.show()
         fig.savefig(self.save_folder+'/cell_ecm_interactions.png', bbox_inches='tight')
+        if self.single == False:
+            plt.close(fig)
 
     def visualize_cell_ecm_graph(self, edge_color='grey'): 
         pos = {}
@@ -622,9 +639,6 @@ class GraphBuilder:
             if 'cell-ecm' in attr['interaction']:
                 cell_ecm_edges.append((u,v))
 
-        print(len(cell_cell_edges))
-        print(len(ecm_ecm_edges))
-        print(len(cell_ecm_edges))
         
         node_colors = [self.color_map[str(n)] for n in node_y]
 
@@ -650,12 +664,12 @@ class GraphBuilder:
         # Adding legend
         plt.tight_layout()
         plt.legend(handles=legend_handles, loc='upper left', bbox_to_anchor=(1.02, 1))
-        plt.show()
         fig.savefig(self.save_folder+'/cell_ecm_graph.png', bbox_inches='tight')
+        if self.single:
+            plt.close(fig)
 
     def count_cells_on_patches(self,cell_mask_path):
 
-        print('Counting cell types on each ECM cluster')
         scaler = MinMaxScaler()
         cells_per_patch = {}
         background_idx = self.cluster_df.sum(axis=1).argmin()
