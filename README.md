@@ -1,7 +1,12 @@
-# Cell-ECM-Graphs
+# Cell-ECM-Graphs in Imaging Mass Cytometry
 
-As an extention of traditional cell graphs, we present a novel framework called cell-ECM graphs, which incorporates both cellular and ECM components into a single graph, allowing for the analysis of cell-cell, ECM-ECM, and cell-ECM interactions. 
+As an extension of traditional cell graphs, we present a novel framework called cell-ECM graphs, which incorporates both cellular and ECM components into a single graph, allowing for the analysis of cell-cell, ECM-ECM, and cell-ECM interactions. 
 
+## Checklist 
+This pipeline requires the use of Steinbock pipeline for cell segmentation and cell annotation. 
+[ ] panel.csv - panel of markers with an 'ecm' column, with ECM markers as 1.
+[ ] imgs - full stack images (NxHxW), where N is the number of markers, can be raw or preprocessed.
+[ ] cell_data.csv - should contain cell data ('centroid-0','centroid-1' and 'celltype'). 
 
 ![Method Overview](Figure_1.png)
 
@@ -17,6 +22,8 @@ and [Lung_multiple ROI](tutorial/Lung_multiple_ROI.ipynb) tutorials.
 
 ### Command Line:  
 Can be used to process multiple ROIs easily:
+
+
 
 #### Step 1: Clone Cell-ECM-Graphs
 ```
