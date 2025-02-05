@@ -9,7 +9,7 @@ This pipeline requires the use of Steinbock pipeline for cell segmentation and c
 
 - [ ] imgs - full stack images (NxHxW), where N is the number of markers, can be raw or preprocessed.
 
-- [ ] cell_data.csv - should contain cell data ('centroid-0','centroid-1' and 'celltype'). 
+- [ ] cell_data.csv - should contain cell data ('centroid-0','centroid-1' and 'celltype') per roi. 
 
 ![Method Overview](Figure_1.png)
 
