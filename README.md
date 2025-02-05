@@ -3,7 +3,7 @@
 As an extension of traditional cell graphs, we present a novel framework called cell-ECM graphs, which incorporates both cellular and ECM components into a single graph, allowing for the analysis of cell-cell, ECM-ECM, and cell-ECM interactions. 
 
 ## Prerequisites Checklist ✅
-This pipeline requires the use of Steinbock pipeline for cell segmentation and cell annotation. 
+This pipeline requires the use of Steinbock pipeline for cell segmentation and cell annotation. The path to these files/folder will need to be used in step 6.
 
 - [ ] panel.csv - panel of markers with an 'ecm' column, with ECM markers as 1.
 
