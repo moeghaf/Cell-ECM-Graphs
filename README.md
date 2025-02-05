@@ -58,7 +58,7 @@ pip install -r requirements.txt
 cd src 
 ```
 
-#### Step 6: Run CellECMGraphs_CLI using the above  
+#### Step 6: Run CellECMGraphs_CLI using the files/folders from the checklist
 ```
 python CellECMGraphs_CLI.py --img_dir C:/PATH/TO/YOUR/imgs --panel_path C:/PATH/TO/YOUR/panel.csv --cellData_dir C:/PATH/TO/YOUR/cell_data
 ```
