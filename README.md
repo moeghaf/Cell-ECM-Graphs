@@ -18,7 +18,7 @@ Python 3.12.3
 
 `git` for cloning the repository
 
-## Usage Examples
+## Usage 
 ### Python Notebook: 
 For a more customizable and Python-focused experience, check out the [Lung_single ROI](tutorial/Lung_single_ROI.ipynb)
 and [Lung_multiple ROI](tutorial/Lung_multiple_ROI.ipynb) tutorials.
