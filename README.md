@@ -60,7 +60,7 @@ cd src
 
 #### Step 5: Run CellECMGraphs_CLI using the above  
 ```
-python CellECMGraphs_CLI.py --img_dir C:/PATH/TO/YOUR/IMG --panel_path C:/PATH/TO/YOUR/panel.csv --cellData_dir C:/PATH/TO/YOUR/cell_data
+python CellECMGraphs_CLI.py --img_dir C:/PATH/TO/YOUR/imgs --panel_path C:/PATH/TO/YOUR/panel.csv --cellData_dir C:/PATH/TO/YOUR/cell_data
 ```
 
 
