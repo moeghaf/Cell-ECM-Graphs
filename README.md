@@ -7,9 +7,9 @@ This pipeline requires the use of Steinbock pipeline for cell segmentation and c
 
 - [ ] panel.csv - panel of markers with an 'ecm' column, with ECM markers as 1.
 
-- [ ] imgs - full stack images (NxHxW), where N is the number of markers, can be raw or preprocessed.
+- [ ] imgs - Folder containing full stack images (NxHxW), where N is the number of markers, can be raw or preprocessed.
 
-- [ ] cell_data.csv - should contain cell data ('centroid-0','centroid-1' and 'celltype') per roi. 
+- [ ] cell_data - Folder containing should contain cell data ('centroid-0','centroid-1' and 'celltype') per ROI. 
 
 ![Method Overview](Figure_1.png)
 
@@ -53,7 +53,18 @@ pip install -r requirements.txt
 ```
 
 
-#### Step 5: 
+#### Step 5: Change dir to source code 
+```
+cd src 
+```
+
+#### Step 5: Run CellECMGraphs_CLI using the above  
+```
+python CellECMGraphs_CLI.py --img_dir C:/PATH/TO/YOUR/IMG --panel_path C:/PATH/TO/YOUR/panel.csv --cellData_dir C:/PATH/TO/YOUR/cell_data
+```
+
+
+
 
 
 
