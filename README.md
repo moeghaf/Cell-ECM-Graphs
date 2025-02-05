@@ -12,7 +12,8 @@ Python 3.12.3
 
 ## Usage Examples
 ### Python Notebook: 
-For a simple tutorial using a single ROI in Python, refer to the [Lung_CEG notebook](tutorial/Lung_single_ROI.ipynb).
+For a more customizable and Python-focused experience, check out the [Lung_single ROI](tutorial/Lung_single_ROI.ipynb)
+and [Lung_multiple ROI](tutorial/Lung_multiple_ROI.ipynb) tutorials.
 
 ### Command Line:  
 Can be used to process multiple ROIs easily:
