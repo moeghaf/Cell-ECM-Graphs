@@ -9,7 +9,7 @@ This pipeline requires the use of Steinbock pipeline for cell segmentation and c
 
 - [ ] imgs - Folder containing full stack images (NxHxW), where N is the number of markers, can be raw or preprocessed.
 
-- [ ] cell_data - Folder containing should contain cell data ('centroid-0','centroid-1' and 'celltype') per ROI. 
+- [ ] cell_data - Folder should contain cell data ('centroid-0','centroid-1' and 'celltype') per ROI. 
 
 ![Method Overview](Figure_1.png)
 
